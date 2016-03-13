@@ -18,4 +18,7 @@ def more(text, numberlines=15):
 
 if __name__ == '__main__':
     import sys
-    more(open(sys.argv[1]).read(), 10)
+    if len(sys.argv) == 1:
+        more(sys.stdin.read())
+    else:
+        more(open(sys.argv[1]).read())
