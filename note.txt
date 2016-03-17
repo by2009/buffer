@@ -1,0 +1,4 @@
+# python3 中常见可移植常量
+>>> s.pathsep, os.sep, os.pardir, os.curdir, os.linesep
+(':', '/', '..', '.', '\n')
+
