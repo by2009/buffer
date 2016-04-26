@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding=utf-8 -*-
 
-
 import requests
 import os
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup
-
 
 class Picture:
     '''
@@ -22,7 +20,7 @@ class Picture:
 
     def __init__(self, root='http://www.4493.com',
                  category='weimeixiezhen',
-                 page=10, pic_page=20, dir='./photos'):
+                 page=238, pic_page=20, dir='./photos'):
         self.root = root
         self.category = category
         self.page = page
@@ -50,6 +48,10 @@ class Picture:
         '''
         爬取页面url，放进page_pools
         '''
+        # 开始抓取的时间
+        begin_time = datetime.now()
+        print('begin time is %s' % str(begin_time))
+
         pagecount = self.beginpage
         while pagecount < self.page:
             pagecount += 1
@@ -63,19 +65,28 @@ class Picture:
                 self.page_pools[
                     self.category + '-' + str(pagecount)] = page_url
         print('get %d page...' % len(self.page_pools))
+        print(self.page_pools)
         # 存储板块链接
         category_file = self.category + '_page.json'
-        if not os.path.exists(category_file):
-            with open(category_file, 'w') as file:
-                json.dump(self.page_pools, file)
+        self.__makeJson__(self.page_pools, category_file)
+
+        # 结束抓取时间
+        end_time = datetime.now()
+        total_time = end_time - begin_time
+        print('end time is %s' % str(total_time))
 
     def getPicUrl(self):
         '''
         爬取图片url，放进pic_pools
         '''
+        # 开始抓取的时间
+        begin_time = datetime.now()
+        print('begin time is %s' % str(begin_time))
+
         # 抓取页面url
         self.getPage()
 
+        altas_num = 0
         for page_url in self.page_pools.values():
             try:
                 page_request = requests.get(page_url, timeout=3)
@@ -96,6 +107,8 @@ class Picture:
                     # ul BeautifulSoup
                     ul_soup = BeautifulSoup(ul, 'lxml')
                     for pic_url in ul_soup.select('a'):
+                        altas_num += 1
+                        print('altas %06d...'%altas_num)
                         # 获取图集名称
                         pic_name = pic_url.span.string
                         pic_url = self.root + pic_url['href']
@@ -103,12 +116,15 @@ class Picture:
                         self.pic_pools[pic_name] = pic_url
             except Exception as e:
                 print(e)
-        # print(self.pic_pools)
+        print(self.pic_pools)
         # 存储图集入口信息
         altas_name = self.category + '_atlas.json'
-        if not os.path.exists(altas_name):
-            with open(altas_name, 'w') as file:
-                json.dump(self.pic_pools, file)
+        self.__makeJson__(self.pic_pools, altas_name)
+
+        # 结束抓取时间
+        end_time = datetime.now()
+        total_time = end_time - begin_time
+        print('end time is %s' % str(total_time))
 
     def getPicInfo(self):
 
@@ -118,6 +134,9 @@ class Picture:
 
         # 抓取图片url
         self.getPicUrl()
+
+        # 图片数量计数
+        img_num = 0
 
         for pic_url in self.pic_pools.values():
             url = pic_url.replace('1.htm', '')
@@ -143,25 +162,20 @@ class Picture:
                     for img_url in pic_soup.select('p > img'):
                         img_url = img_url['src']
                         pic_list.append(img_url)
-                        # 打印下载图片提示
-                        print(
-                            'downloading pic ---> %s...' %
-                            (pic_dir_name + '%d.jpg' %
-                             (pic_num)))
+                        img_num += 1
+                        print('pic %06d...' %img_num)
                         # 下载图片
                         referer = pic_url
-                        self.headers['Referer'] = referer
-                        self.__downloadpic__(img_url, pic_dir_name, pic_num)
+                        #self.headers['Referer'] = referer
+                        #self.__downloadpic__(img_url, pic_dir_name, pic_num)
                     # put pic_list into img_pools
-                    self.img_pools[pic_dir_name] = pic_list
+                    self.img_pools[pic_dir_name] = [pic_list, referer]
                 except Exception as e:
                     print(e)
         print(self.img_pools)
         # 存储图集url
         img_name = self.category + '_img.json'
-        if not os.path.exists(img_name):
-            with open(img_name, 'w') as file:
-                json.dump(self.img_pools, file)
+        self.__makeJson__(self.img_pools, img_name)
 
         # 结束抓取时间
         end_time = datetime.now()
@@ -189,6 +203,12 @@ class Picture:
         except Exception as e:
             print(e)
 
+    def __makeJson__(self, object, fileName):
+        '''
+        将对象序列化为json文件
+        '''
+        with open(fileName, 'w') as file:
+            json.dump(object, file)
 
 if __name__ == '__main__':
     pic = Picture('http://www.4493.com', 'weimeixiezhen')
