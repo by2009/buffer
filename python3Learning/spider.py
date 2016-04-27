@@ -10,7 +10,6 @@ from bs4 import BeautifulSoup
 class Picture:
     '''
     爬取'4493美图'网站的图片
-
     root:       http://www.4493.com
     category:   weimeixiezhen
     page:       爬取的页面数
@@ -84,12 +83,14 @@ class Picture:
         print('begin time is %s' % str(begin_time))
 
         # 抓取页面url
-        self.getPage()
+        #self.getPage()
+        with open('weimeixiezhen_page.json', 'r') as file:
+            self.page_pools = json.load(file)
 
         altas_num = 0
         for page_url in self.page_pools.values():
             try:
-                page_request = requests.get(page_url, timeout=3)
+                page_request = requests.get(page_url, timeout=7)
                 # status_code
                 if page_request.status_code != requests.codes.ok:
                     continue
@@ -133,7 +134,17 @@ class Picture:
         print('begin time is %s' % str(begin_time))
 
         # 抓取图片url
-        self.getPicUrl()
+        #self.getPicUrl()
+        with open('weimeixiezhen_atlas.json', 'r') as file:
+            self.pic_pools = json.load(file)
+        for name, key in self.pic_pools.items():
+            print('%s : %s'%(name, key))
+        print('total atlas: %d'%len(self.pic_pools))
+
+        # 结束抓取时间
+        end_time = datetime.now()
+        total_time = end_time - begin_time
+        print('get atlas cost %s' % str(total_time))
 
         # 图片数量计数
         img_num = 0
@@ -145,9 +156,10 @@ class Picture:
                 pic_num += 1
                 pic_url = url + '%d.htm' % pic_num
                 try:
-                    pic_request = requests.get(pic_url)
+                    pic_request = requests.get(pic_url, timeout=3)
                     # status_code
                     if pic_request.status_code != requests.codes.ok:
+                        pic_num = self.pic_page
                         continue
                     pic_content = pic_request.content
                     # BeautifulSoup
@@ -164,6 +176,7 @@ class Picture:
                         pic_list.append(img_url)
                         img_num += 1
                         print('pic %06d...' %img_num)
+                        print('url: %s'%img_url)
                         # 下载图片
                         referer = pic_url
                         #self.headers['Referer'] = referer
@@ -212,4 +225,8 @@ class Picture:
 
 if __name__ == '__main__':
     pic = Picture('http://www.4493.com', 'weimeixiezhen')
+    #pic.getPage()
+    #pic.getPicUrl()
     pic.getPicInfo()
+
+  
