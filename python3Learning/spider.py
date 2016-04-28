@@ -4,8 +4,10 @@
 import requests
 import os
 import json
+import threading
 from datetime import datetime
 from bs4 import BeautifulSoup
+
 
 class Picture:
     '''
@@ -36,9 +38,9 @@ class Picture:
         # 板块下的页面url
         self.page_pools = dict()
         # 具体图集页面的开始url
-        self.pic_pools = dict()
+        self.pic_pools = list()
         # 图片的url
-        self.img_pools = dict()
+        self.img_pools = list()
         # create dir
         if not os.path.exists(dir):
             os.mkdir(dir)
@@ -83,7 +85,7 @@ class Picture:
         print('begin time is %s' % str(begin_time))
 
         # 抓取页面url
-        #self.getPage()
+        # self.getPage()
         with open('weimeixiezhen_page.json', 'r') as file:
             self.page_pools = json.load(file)
 
@@ -109,12 +111,12 @@ class Picture:
                     ul_soup = BeautifulSoup(ul, 'lxml')
                     for pic_url in ul_soup.select('a'):
                         altas_num += 1
-                        print('altas %06d...'%altas_num)
+                        print('altas %06d...' % altas_num)
                         # 获取图集名称
                         pic_name = pic_url.span.string
                         pic_url = self.root + pic_url['href']
                         # put pic url into pic_pools
-                        self.pic_pools[pic_name] = pic_url
+                        self.pic_pools.append({pic_name: pic_url})
             except Exception as e:
                 print(e)
         print(self.pic_pools)
@@ -127,19 +129,11 @@ class Picture:
         total_time = end_time - begin_time
         print('end time is %s' % str(total_time))
 
-    def getPicInfo(self):
+    def getPicInfo(self, pools, begin_num, end_num):
 
         # 开始抓取的时间
         begin_time = datetime.now()
         print('begin time is %s' % str(begin_time))
-
-        # 抓取图片url
-        #self.getPicUrl()
-        with open('weimeixiezhen_atlas.json', 'r') as file:
-            self.pic_pools = json.load(file)
-        for name, key in self.pic_pools.items():
-            print('%s : %s'%(name, key))
-        print('total atlas: %d'%len(self.pic_pools))
 
         # 结束抓取时间
         end_time = datetime.now()
@@ -149,14 +143,17 @@ class Picture:
         # 图片数量计数
         img_num = 0
 
-        for pic_url in self.pic_pools.values():
+        for pic_dict in pools:
+            for value in pic_dict.values():
+                pic_url = value
+            # print(pic_url)
             url = pic_url.replace('1.htm', '')
             pic_num = 0
             while pic_num < self.pic_page:
                 pic_num += 1
                 pic_url = url + '%d.htm' % pic_num
                 try:
-                    pic_request = requests.get(pic_url, timeout=3)
+                    pic_request = requests.get(pic_url, timeout=7)
                     # status_code
                     if pic_request.status_code != requests.codes.ok:
                         pic_num = self.pic_page
@@ -175,19 +172,19 @@ class Picture:
                         img_url = img_url['src']
                         pic_list.append(img_url)
                         img_num += 1
-                        print('pic %06d...' %img_num)
-                        print('url: %s'%img_url)
+                        print('pic %06d...' % img_num)
+                        print('url: %s' % img_url)
                         # 下载图片
                         referer = pic_url
                         #self.headers['Referer'] = referer
                         #self.__downloadpic__(img_url, pic_dir_name, pic_num)
                     # put pic_list into img_pools
-                    self.img_pools[pic_dir_name] = [pic_list, referer]
+                    self.img_pools.append({pic_dir_name: [pic_list, referer]})
                 except Exception as e:
                     print(e)
         print(self.img_pools)
         # 存储图集url
-        img_name = self.category + '_img.json'
+        img_name = self.category + '_img_%d_%d.json' % (begin_num, end_num)
         self.__makeJson__(self.img_pools, img_name)
 
         # 结束抓取时间
@@ -225,8 +222,34 @@ class Picture:
 
 if __name__ == '__main__':
     pic = Picture('http://www.4493.com', 'weimeixiezhen')
-    #pic.getPage()
-    #pic.getPicUrl()
-    pic.getPicInfo()
+    # pic.getPage()
+    # pic.getPicUrl()
+    # 抓取图片url
+    # self.getPicUrl()
+    pools = dict()
+    with open('weimeixiezhen_atlas.json', 'r') as file:
+        pools = json.load(file)
 
-  
+    # 开启多线程爬取
+    threads = list()
+    altas_num = len(pools)
+    print('total atlas: %d' % altas_num)
+    begin_num = 0
+    end_num = 0
+    while end_num < altas_num:
+        begin_num = end_num
+        end_num += 1000
+        tmp_pools = pools[begin_num: end_num]
+        t = threading.Thread(
+            target=pic.getPicInfo, args=(
+                tmp_pools, begin_num, end_num,))
+        threads.append(t)
+        print('from %d to %d' %
+              (begin_num, end_num))
+
+    for t in threads:
+        t.setDaemon(True)
+        t.start()
+
+    t.join()
+    print('Spider is over at %s' % str(datetime.now()))
